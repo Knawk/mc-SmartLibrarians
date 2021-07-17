@@ -75,6 +75,7 @@ public class UpgradeLibrarianTradeListener implements Listener {
     private static List<Enchantment> compatibleEnchants(final ItemStack stack) {
         return Arrays
                 .stream(Enchantment.values())
+                .filter(enchant -> !enchant.getKey().toString().equals("minecraft:soul_speed"))
                 .filter(enchant -> enchant.canEnchantItem(stack))
                 .toList();
     }
