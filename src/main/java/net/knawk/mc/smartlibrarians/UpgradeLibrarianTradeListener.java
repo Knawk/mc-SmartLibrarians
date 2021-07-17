@@ -45,8 +45,6 @@ public class UpgradeLibrarianTradeListener implements Listener {
         MerchantRecipe upgradedTrade = upgradeTrade(originalTrade, getRandomEnchant(candidateEnchants));
         event.setRecipe(upgradedTrade);
         spawnSuccessEffectCloud(frame.get());
-
-        log.info(String.format("found %s, set trade %s", frame.get().getItem(), formatTrade(upgradedTrade)));
     }
 
     /**
@@ -130,36 +128,6 @@ public class UpgradeLibrarianTradeListener implements Listener {
             price = 64;
         }
         return price;
-    }
-
-    private static String formatTrade(final MerchantRecipe trade) {
-        StringBuilder builder = new StringBuilder(formatItemStack(trade.getIngredients().get(0)));
-        trade.getIngredients().stream().skip(1).forEach(stack -> {
-            builder.append(" + ");
-            builder.append(formatItemStack(stack));
-        });
-        builder.append(" => ");
-        builder.append(formatItemStack(trade.getResult()));
-        return builder.toString();
-    }
-
-    private static String formatItemStack(final ItemStack stack) {
-        StringBuilder builder = new StringBuilder();
-        if (stack.getAmount() > 1) {
-            builder.append(stack.getAmount());
-            builder.append('*');
-        }
-        builder.append(stack.getType().name());
-        if (stack.getItemMeta() instanceof EnchantmentStorageMeta) {
-            Map<Enchantment, Integer> enchants = ((EnchantmentStorageMeta) stack.getItemMeta()).getStoredEnchants();
-            enchants.forEach(((enchantment, level) -> {
-                builder.append('+');
-                builder.append(enchantment.getName());
-                builder.append('@');
-                builder.append(level);
-            }));
-        }
-        return builder.toString();
     }
 
     private static void spawnSuccessEffectCloud(final ItemFrame frame) {
