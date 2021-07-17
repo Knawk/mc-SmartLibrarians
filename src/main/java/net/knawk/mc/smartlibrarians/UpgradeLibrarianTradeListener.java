@@ -3,12 +3,10 @@ package net.knawk.mc.smartlibrarians;
 import com.google.common.collect.Lists;
 import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.Particle;
 import org.bukkit.World;
 import org.bukkit.enchantments.Enchantment;
-import org.bukkit.entity.Entity;
-import org.bukkit.entity.EntityType;
-import org.bukkit.entity.ItemFrame;
-import org.bukkit.entity.Villager;
+import org.bukkit.entity.*;
 import org.bukkit.entity.memory.MemoryKey;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -17,6 +15,7 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.MerchantRecipe;
 import org.bukkit.inventory.meta.EnchantmentStorageMeta;
 import org.bukkit.util.BoundingBox;
+import org.bukkit.util.Vector;
 
 import java.util.*;
 import java.util.logging.Logger;
@@ -37,35 +36,35 @@ public class UpgradeLibrarianTradeListener implements Listener {
         if (originalTrade.getResult().getType() != Material.ENCHANTED_BOOK) return;
 
         // Only modify if there's exactly one nearby framed item and it has compatible enchantments
-        Optional<ItemStack> framedItem = getNearbyFramedItem(Objects.requireNonNull(villager.getMemory(MemoryKey.JOB_SITE)));
-        if (framedItem.isEmpty()) return;
-        List<Enchantment> candidateEnchants = compatibleEnchants(framedItem.get());
+        Location lecternLocation = Objects.requireNonNull(villager.getMemory(MemoryKey.JOB_SITE));
+        Optional<ItemFrame> frame = getNearbyItemFrame(lecternLocation);
+        if (frame.isEmpty()) return;
+        List<Enchantment> candidateEnchants = compatibleEnchants(frame.get().getItem());
         if (candidateEnchants.isEmpty()) return;
 
         MerchantRecipe upgradedTrade = upgradeTrade(originalTrade, getRandomEnchant(candidateEnchants));
         event.setRecipe(upgradedTrade);
-        log.info(String.format("found %s, set trade %s", framedItem.get(), formatTrade(upgradedTrade)));
+        spawnSuccessEffectCloud(frame.get());
+
+        log.info(String.format("found %s, set trade %s", frame.get().getItem(), formatTrade(upgradedTrade)));
     }
 
     /**
-     * @param lecternLocation location of the villager's job block
-     * @return the sole framed item above {@code lecternLocation}, or {@code Optional.empty()} if there are zero or multiple framed items
+     * @param location a block location
+     * @return the sole item frame above {@code location}, or {@code Optional.empty()} if there are zero or multiple
      */
-    private static Optional<ItemStack> getNearbyFramedItem(final Location lecternLocation) {
-        Location aboveLectern = lecternLocation.add(0, 1, 0);
-        World world = Objects.requireNonNull(aboveLectern.getWorld());
-        Collection<Entity> entitiesAboveLectern = world.getNearbyEntities(BoundingBox.of(aboveLectern.getBlock()));
-        List<ItemFrame> framesAboveLectern = entitiesAboveLectern
+    private static Optional<ItemFrame> getNearbyItemFrame(final Location location) {
+        World world = Objects.requireNonNull(location.getWorld());
+        Location above = location.add(0, 1, 0);
+        Collection<Entity> entities = world.getNearbyEntities(BoundingBox.of(above.getBlock()));
+        List<ItemFrame> frames = entities
                 .stream()
                 .filter(entity -> entity.getType() == EntityType.ITEM_FRAME)
                 .map(entity -> (ItemFrame) entity)
                 .toList();
 
         // Must have exactly one frame
-        if (framesAboveLectern.size() != 1) return Optional.empty();
-
-        ItemStack framedItem = framesAboveLectern.get(0).getItem();
-        return framedItem.getType() == Material.AIR ? Optional.empty() : Optional.of(framedItem);
+        return (frames.size() == 1) ? Optional.of(frames.get(0)) : Optional.empty();
     }
 
     /**
@@ -90,7 +89,7 @@ public class UpgradeLibrarianTradeListener implements Listener {
 
     /**
      * @param referenceTrade a reference enchanted-book trade
-     * @param enchant enchantment to use
+     * @param enchant        enchantment to use
      * @return a max-level enchanted-book trade with the given enchantment
      */
     private static MerchantRecipe upgradeTrade(final MerchantRecipe referenceTrade, final Enchantment enchant) {
@@ -114,7 +113,7 @@ public class UpgradeLibrarianTradeListener implements Listener {
 
     /**
      * Returns a random trade price (in emeralds) for an enchanted book with the given enchantment at max level.
-     *
+     * <p>
      * Formula taken from Minecraft 1.17 source code.
      *
      * @param enchant enchantment on the desired book
@@ -161,5 +160,16 @@ public class UpgradeLibrarianTradeListener implements Listener {
             }));
         }
         return builder.toString();
+    }
+
+    private static void spawnSuccessEffectCloud(final ItemFrame frame) {
+        World world = Objects.requireNonNull(frame.getWorld());
+        Vector center = frame.getBoundingBox().getCenter();
+        Location location = new Location(world, center.getX(), center.getY(), center.getZ());
+        world.spawn(location, AreaEffectCloud.class, cloud -> {
+            cloud.setDuration(20);
+            cloud.setRadius(0.7f);
+            cloud.setParticle(Particle.ENCHANTMENT_TABLE);
+        });
     }
 }
